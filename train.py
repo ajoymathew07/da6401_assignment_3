@@ -328,20 +328,45 @@ def load_checkpoint(
 def run_training_experiment() -> None:
     from dataset import Multi30kDataset
     from lr_scheduler import NoamScheduler
+    import argparse
+    # ── Argument Parser ───────────────────────────────────────────────
+    parser = argparse.ArgumentParser(description="DA6401 Assignment 3 - Transformer NMT")
+
+    # Model hyperparameters
+    parser.add_argument("--d_model",      type=int,   default=512,   help="Model dimensionality")
+    parser.add_argument("--N",            type=int,   default=6,     help="Number of encoder/decoder layers")
+    parser.add_argument("--num_heads",    type=int,   default=8,     help="Number of attention heads")
+    parser.add_argument("--d_ff",         type=int,   default=2048,  help="FFN inner dimensionality")
+    parser.add_argument("--dropout",      type=float, default=0.1,   help="Dropout probability")
+
+    # Training hyperparameters
+    parser.add_argument("--warmup_steps", type=int,   default=4000,  help="Noam scheduler warmup steps")
+    parser.add_argument("--batch_size",   type=int,   default=128,   help="Batch size (per GPU if multi-GPU)")
+    parser.add_argument("--num_epochs",   type=int,   default=15,    help="Number of training epochs")
+    parser.add_argument("--smoothing",    type=float, default=0.1,   help="Label smoothing factor")
+
+    # Experiment control
+    parser.add_argument("--train",        action="store_true",        help="Train from scratch")
+    parser.add_argument("--checkpoint",   type=str,   default="best_checkpoint.pt",
+                        help="Path to checkpoint to load/save")
+    parser.add_argument("--wandb_project",type=str,   default="da6401-a3", help="W&B project name")
+    parser.add_argument("--wandb_run",    type=str,   default=None,   help="W&B run name (optional)")
+
+    args = parser.parse_args()
 
     # ── 1. W&B ────────────────────────────────────────────────────────
     config = {
-        "d_model":      512,
-        "N":            6,
-        "num_heads":    8,
-        "d_ff":         2048,
-        "dropout":      0.1,
-        "warmup_steps": 4000,
-        "batch_size":   128,
-        "num_epochs":   15,
-        "smoothing":    0.1,
+        "d_model":      args.d_model,
+        "N":            args.N,
+        "num_heads":    args.num_heads,
+        "d_ff":         args.d_ff,
+        "dropout":      args.dropout,
+        "warmup_steps": args.warmup_steps,
+        "batch_size":   args.batch_size,
+        "num_epochs":   args.num_epochs,
+        "smoothing":    args.smoothing,
     }
-    wandb.init(project="da6401-a3", config=config)
+    wandb.init(project="Neural Machine Translation", config=config)
     cfg    = wandb.config
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
