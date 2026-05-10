@@ -289,7 +289,7 @@ def save_checkpoint(
         "epoch":                epoch,
         "model_state_dict":     raw_model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": scheduler.state_dict(),
+        "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
         "src_vocab": raw_model.src_vocab,
         "tgt_vocab": raw_model.tgt_vocab,
         "model_config": {
