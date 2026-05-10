@@ -112,6 +112,7 @@ def run_epoch(
     total_loss   = 0.0
     total_tokens = 0
     pad_idx      = 0
+    global_step = epoch_num * len(data_iter)
 
     context = torch.enable_grad() if is_train else torch.no_grad()
 
@@ -136,8 +137,16 @@ def run_epoch(
             if is_train and optimizer is not None:
                 optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                # Log Query/Key gradient norms
+                if global_step < 1000:
+                    log_attention_gradient_norms(model, global_step)
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(),
+                    max_norm=1.0
+                )
                 optimizer.step()
+                global_step += 1
+
                 if scheduler is not None:
                     scheduler.step()
                 wandb.log({
@@ -335,7 +344,26 @@ def detokenize(tokens: list[str]) -> str:
         sentence = sentence.replace(f" {c}", c)
 
     return sentence
+    
+def log_attention_gradient_norms(model, step):
+    raw_model = model.module if isinstance(model, nn.DataParallel) else model
 
+    for name, param in raw_model.named_parameters():
+
+        if param.grad is None:
+            continue
+
+        if "W_q.weight" in name:
+            wandb.log({
+                "grad_norm/query": param.grad.norm().item(),
+                "step": step,
+            })
+
+        if "W_k.weight" in name:
+            wandb.log({
+                "grad_norm/key": param.grad.norm().item(),
+                "step": step,
+            })
 # ══════════════════════════════════════════════════════════════════════
 #  EXPERIMENT ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════
@@ -368,6 +396,11 @@ def run_training_experiment() -> None:
     parser.add_argument("--train",        action="store_true",        help="Train from scratch")
     parser.add_argument("--checkpoint",   type=str,   default="best_checkpoint.pt",
                         help="Path to checkpoint to load/save")
+    parser.add_argument(
+    "--use_scaling",
+    action="store_true",
+    help="Use 1/sqrt(d_k) scaling in attention"
+)
     parser.add_argument("--wandb_project",type=str,   default="da6401-a3", help="W&B project name")
     parser.add_argument("--wandb_run",    type=str,   default=None,   help="W&B run name (optional)")
 
@@ -397,6 +430,7 @@ def run_training_experiment() -> None:
         d_ff         = cfg.d_ff,
         dropout      = cfg.dropout,
         load_weights = not args.train,
+        use_scaling = args.use_scaling,
     ).to(device)
 
     # ── 3. Wrap with DataParallel if multiple GPUs available ──────────

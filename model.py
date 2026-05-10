@@ -16,6 +16,7 @@ AUTOGRADER CONTRACT (DO NOT MODIFY SIGNATURES):
 
 import math
 import copy
+
 import os
 import gdown
 from typing import Optional, Tuple
@@ -38,6 +39,7 @@ def scaled_dot_product_attention(
     K: torch.Tensor,
     V: torch.Tensor,
     mask: Optional[torch.Tensor] = None,
+    use_scaling: bool = True
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Compute Scaled Dot-Product Attention.
@@ -58,7 +60,10 @@ def scaled_dot_product_attention(
         attn_w : Attention weights, shape (..., seq_q, seq_k)
     """
     d_k    = Q.size(-1)
-    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    scores = torch.matmul(Q, K.transpose(-2, -1))
+
+    if use_scaling:
+        scores = scores / math.sqrt(d_k)
 
     if mask is not None:
         scores = scores.masked_fill(mask, float('-inf'))
@@ -146,13 +151,14 @@ class MultiHeadAttention(nn.Module):
         dropout   (float): Dropout probability applied to attention weights.
     """
 
-    def __init__(self, d_model: int, num_heads: int, dropout: float = 0.1) -> None:
+    def __init__(self, d_model: int, num_heads: int, dropout: float = 0.1, use_scaling:bool = True) -> None:
         super().__init__()
         assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
 
         self.d_model   = d_model
         self.num_heads = num_heads
         self.d_k       = d_model // num_heads   # depth per head
+        self.use_scaling = use_scaling
 
         self.W_q = nn.Linear(d_model, d_model)
         self.W_k = nn.Linear(d_model, d_model)
@@ -191,7 +197,7 @@ class MultiHeadAttention(nn.Module):
         K = K.view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
         V = V.view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
 
-        attn_out, _ = scaled_dot_product_attention(Q, K, V, mask = mask)
+        attn_out, _ = scaled_dot_product_attention(Q, K, V, mask = mask, use_scaling = self.use_scaling)
 
         attn_out = attn_out.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)  # [batch, seq_q, d_model]
 
@@ -291,10 +297,10 @@ class EncoderLayer(nn.Module):
         dropout   (float): Dropout probability.
     """
 
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1) -> None:
+    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1, use_scaling: bool = True) -> None:
         super().__init__()
         # TODO:instantiate:
-        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
+        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, use_scaling)
         self.ffn = PositionwiseFeedForward(d_model, d_ff, dropout)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -335,11 +341,11 @@ class DecoderLayer(nn.Module):
         dropout   (float): Dropout probability.
     """
 
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1) -> None:
+    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1, use_scaling: bool = True) -> None:
         super().__init__()
         # TODO: instantiate:
-        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
-        self.cross_attn = MultiHeadAttention(d_model, num_heads, dropout)
+        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, use_scaling)
+        self.cross_attn = MultiHeadAttention(d_model, num_heads, dropout, use_scaling)
         self.ffn = PositionwiseFeedForward(d_model, d_ff, dropout)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -454,8 +460,10 @@ class Transformer(nn.Module):
         dropout:         float          = 0.1,
         checkpoint_path: Optional[str]  = None,
         load_weights:   bool           = True,
+        use_scaling: bool              = True
     ) -> None:
         # ── Step 1: Tokenizers (plain Python — BEFORE super().__init__) ──
+        self.use_scaling = use_scaling
         import spacy
 
         try:
@@ -498,8 +506,8 @@ class Transformer(nn.Module):
         self.src_embed         = nn.Embedding(src_vocab_size, d_model)
         self.tgt_embed         = nn.Embedding(tgt_vocab_size, d_model)
         self.pos_enc           = PositionalEncoding(d_model, dropout)
-        self.encoder           = Encoder(EncoderLayer(d_model, num_heads, d_ff, dropout), N)
-        self.decoder           = Decoder(DecoderLayer(d_model, num_heads, d_ff, dropout), N)
+        self.encoder           = Encoder(EncoderLayer(d_model, num_heads, d_ff, dropout, self.use_scaling), N)
+        self.decoder           = Decoder(DecoderLayer(d_model, num_heads, d_ff, dropout, self.use_scaling), N)
         self.output_projection = nn.Linear(d_model, tgt_vocab_size)
         self._init_weights()
 
