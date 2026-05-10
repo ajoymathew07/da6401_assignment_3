@@ -139,16 +139,15 @@ def run_epoch(
                 optimizer.step()
                 if scheduler is not None:
                     scheduler.step()
+                wandb.log({
+                    "train/step_loss": loss.item(),
+                    "train/lr":        optimizer.param_groups[0]["lr"],
+                })
 
             non_pad       = (targets_flat != pad_idx).sum().item()
             total_loss   += loss.item() * non_pad   # type: ignore
             total_tokens += non_pad                  # type: ignore
 
-            if is_train and optimizer is not None:
-                wandb.log({
-                    "train/step_loss": loss.item(),
-                    "train/lr":        optimizer.param_groups[0]["lr"],
-                })
 
     avg_loss = total_loss / max(total_tokens, 1)    # type: ignore
     prefix   = "train" if is_train else "val"
@@ -377,7 +376,7 @@ def run_training_experiment() -> None:
         num_heads    = cfg.num_heads,
         d_ff         = cfg.d_ff,
         dropout      = cfg.dropout,
-        load_weights = False,
+        load_weights = not args.train,
     ).to(device)
 
     # ── 3. Wrap with DataParallel if multiple GPUs available ──────────
@@ -442,29 +441,29 @@ def run_training_experiment() -> None:
     )
 
     # ── 8. Training loop ──────────────────────────────────────────────
-    best_val_loss = float("inf")
-    for epoch in range(cfg.num_epochs):
-        train_loss = run_epoch(
-            train_loader, model, loss_fn, optimizer, scheduler,
-            epoch_num=epoch, is_train=True, device=device
-        )
-        val_loss = run_epoch(
-            val_loader, model, loss_fn, None, None,
-            epoch_num=epoch, is_train=False, device=device
-        )
-        print(f"Epoch {epoch+1:02d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f}")
+    if args.train:
+        best_val_loss = float("inf")
+        for epoch in range(cfg.num_epochs):
+            train_loss = run_epoch(
+                train_loader, model, loss_fn, optimizer, scheduler,
+                epoch_num=epoch, is_train=True, device=device
+            )
+            val_loss = run_epoch(
+                val_loader, model, loss_fn, None, None,
+                epoch_num=epoch, is_train=False, device=device
+            )
+            print(f"Epoch {epoch+1:02d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f}")
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            save_checkpoint(model, optimizer, scheduler, epoch, "best_checkpoint.pt")
-            print("Checkpoint saved → best_checkpoint.pt")
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                save_checkpoint(model, optimizer, scheduler, epoch, args.checkpoint)
+                print(f"Checkpoint saved → {args.checkpoint}")
 
-    # ── 9. Copy to default inference path ─────────────────────────────
-    shutil.copy("best_checkpoint.pt", "transformer_weights.pt")
-    print("Copied → transformer_weights.pt")
+        shutil.copy(args.checkpoint, "transformer_weights.pt")
+        print("Copied → transformer_weights.pt")
+        load_checkpoint(args.checkpoint, base_model)
 
     # ── 10. Evaluate BLEU on test set using best weights ──────────────
-    load_checkpoint("best_checkpoint.pt", base_model)
     bleu = evaluate_bleu(base_model, test_loader, tgt_vocab, device=device)
     print(f"Test BLEU: {bleu:.2f}")
     wandb.log({"test_bleu": bleu})

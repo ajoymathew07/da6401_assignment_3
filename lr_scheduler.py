@@ -35,8 +35,6 @@ class NoamScheduler(LRScheduler):
     ) -> None:
         self.d_model = d_model
         self.warmup_steps = warmup_steps
-        self._d_model_scale = d_model ** -0.5
-        self._warmup_scale = warmup_steps ** -1.5
         super().__init__(optimizer, last_epoch)
 
     # ------------------------------------------------------------------
@@ -52,7 +50,7 @@ class NoamScheduler(LRScheduler):
             scale = d_model^(-0.5) * min(step^(-0.5), step * warmup_steps^(-1.5))
         """
         step = self.last_epoch + 1
-        return self._d_model_scale * min(step ** -0.5, step * self._warmup_scale** -1.5)
+        return (self.d_model ** -0.5) * min(step ** -0.5, step * (self.warmup_steps ** -1.5))
 
     # ------------------------------------------------------------------
     def get_lr(self) -> list[float | torch.Tensor]:

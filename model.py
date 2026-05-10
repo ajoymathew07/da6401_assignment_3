@@ -57,15 +57,18 @@ def scaled_dot_product_attention(
         output : Attended output,   shape (..., seq_q, d_v)
         attn_w : Attention weights, shape (..., seq_q, seq_k)
     """
-    d_k = Q.size(-1)
+    d_k    = Q.size(-1)
     scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
 
     if mask is not None:
         scores = scores.masked_fill(mask, float('-inf'))
-    
+
     attn_weights = F.softmax(scores, dim=-1)
+    # Replace NaN (all-masked rows) with 0 to avoid propagating NaN
+    attn_weights = torch.nan_to_num(attn_weights, nan=0.0)
     output = torch.matmul(attn_weights, V)
     return output, attn_weights
+
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -76,7 +79,7 @@ def scaled_dot_product_attention(
 
 def make_src_mask(
     src: torch.Tensor,
-    pad_idx: int = 1,
+    pad_idx: int = 0,
 ) -> torch.Tensor:
     """
     Build a padding mask for the encoder (source sequence).
@@ -97,7 +100,7 @@ def make_src_mask(
 
 def make_tgt_mask(
     tgt: torch.Tensor,
-    pad_idx: int = 1,
+    pad_idx: int = 0,
 ) -> torch.Tensor:
     """
     Build a combined padding + causal (look-ahead) mask for the decoder.
