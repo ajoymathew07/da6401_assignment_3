@@ -449,6 +449,7 @@ class Transformer(nn.Module):
         num_heads: int   = 8,
         d_ff:      int   = 2048,
         dropout:   float = 0.1,
+        checkpoint_path: str = None,
     ) -> None:
         super().__init__()
         # TODO: Instantiate 
@@ -530,5 +531,18 @@ class Transformer(nn.Module):
         Returns:
             logits : shape [batch, tgt_len, tgt_vocab_size]
         """
-        memory = self.encode(src, src_mask)
-        return self.decode(memory, src_mask, tgt, tgt_mask)
+        raise NotImplementedError
+
+
+    def infer(self, src_sentence: str) -> str:
+        """
+        Translates a German sentence to English using greedy autoregressive decoding.
+        
+        Args:
+            src_sentence: The raw German text.
+            
+            
+        Returns:
+            The fully translated English string, detokenized and clean.
+        """
+        raise NotImplementedError
