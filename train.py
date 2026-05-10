@@ -208,7 +208,7 @@ def evaluate_bleu(
     test_dataloader: DataLoader,
     tgt_vocab: dict,
     device: str = "cpu",
-    max_len: int = 100,
+    max_len: int = 50,
 ) -> float:
     """
     Evaluate translation quality with corpus-level BLEU score.
@@ -258,8 +258,8 @@ def evaluate_bleu(
                     idx_to_token[idx] for idx in tgt[i].tolist()
                     if idx not in (sos_idx, eos_idx, pad_idx)
                 ]
-                predictions.append(" ".join(pred_tokens))
-                references.append(" ".join(ref_tokens))
+                predictions.append(detokenize(pred_tokens))
+                references.append(detokenize(ref_tokens))
 
     result = sacrebleu.corpus_bleu(predictions, [references])
     return float(result.score)
@@ -289,6 +289,8 @@ def save_checkpoint(
         "model_state_dict":     raw_model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "scheduler_state_dict": scheduler.state_dict(),
+        "src_vocab": raw_model.src_vocab,
+        "tgt_vocab": raw_model.tgt_vocab,
         "model_config": {
             "d_model":   raw_model.src_embed.embedding_dim,
             "N":         len(raw_model.encoder.layers),
@@ -319,6 +321,19 @@ def load_checkpoint(
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
     return int(checkpoint["epoch"])
 
+def detokenize(tokens: list[str]) -> str:
+
+    sentence = " ".join(tokens)
+
+    for p in [".", ",", "!", "?", ":", ";"]:
+
+        sentence = sentence.replace(f" {p}", p)
+
+    for c in ["n't", "'s", "'re", "'ve", "'ll", "'m"]:
+
+        sentence = sentence.replace(f" {c}", c)
+
+    return sentence
 
 # ══════════════════════════════════════════════════════════════════════
 #  EXPERIMENT ENTRY POINT

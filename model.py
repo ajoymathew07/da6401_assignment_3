@@ -599,7 +599,23 @@ class Transformer(nn.Module):
         return self.decode(memory, src_mask, tgt, tgt_mask)
 
 
+    def detokenize(self,tokens: list[str]) -> str:
+        sentence = " ".join(tokens)
 
+        sentence = sentence.replace(" .", ".")
+        sentence = sentence.replace(" ,", ",")
+        sentence = sentence.replace(" !", "!")
+        sentence = sentence.replace(" ?", "?")
+        sentence = sentence.replace(" :", ":")
+        sentence = sentence.replace(" ;", ";")
+        sentence = sentence.replace(" n't", "n't")
+        sentence = sentence.replace(" 's", "'s")
+        sentence = sentence.replace(" 're", "'re")
+        sentence = sentence.replace(" 've", "'ve")
+        sentence = sentence.replace(" 'll", "'ll")
+        sentence = sentence.replace(" 'm", "'m")
+
+        return sentence
     def infer(self, src_sentence: str) -> str:
         """
         Translates a German sentence to English using greedy autoregressive decoding.
@@ -649,4 +665,4 @@ class Transformer(nn.Module):
             for idx in ys[0].tolist()
             if idx not in (sos_idx, eos_idx, pad_idx)
         ]
-        return " ".join(output_tokens)
+        return self.detokenize(output_tokens)
