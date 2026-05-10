@@ -15,6 +15,7 @@ AUTOGRADER CONTRACT (DO NOT MODIFY SIGNATURES):
   └─────────────────────────────────────────────────────────────────────┘
 """
 
+from pyexpat import model
 import shutil
 from typing import Optional, cast
 
@@ -358,7 +359,11 @@ def run_training_experiment() -> None:
     parser.add_argument("--batch_size",   type=int,   default=256,   help="Batch size (per GPU if multi-GPU)")
     parser.add_argument("--num_epochs",   type=int,   default=30,    help="Number of training epochs")
     parser.add_argument("--smoothing",    type=float, default=0.1,   help="Label smoothing factor")
-
+    parser.add_argument(
+        "--use_noam",
+        action="store_true",
+        help="Use Noam learning rate scheduler"
+    )
     # Experiment control
     parser.add_argument("--train",        action="store_true",        help="Train from scratch")
     parser.add_argument("--checkpoint",   type=str,   default="best_checkpoint.pt",
@@ -445,12 +450,22 @@ def run_training_experiment() -> None:
                               shuffle=False, collate_fn=collate_fn)
 
     # ── 7. Optimizer, scheduler, loss ─────────────────────────────────
+    base_lr = 1.0 if args.use_noam else 1e-4
+
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=1.0, betas=(0.9, 0.98), eps=1e-9
-    )
-    scheduler = NoamScheduler(
-        optimizer, d_model=cfg.d_model, warmup_steps=cfg.warmup_steps
-    )
+    model.parameters(),
+    lr=base_lr,
+    betas=(0.9, 0.98),
+    eps=1e-9
+)
+    scheduler = None
+
+    if args.use_noam:
+        scheduler = NoamScheduler(
+            optimizer,
+            d_model=cfg.d_model,
+            warmup_steps=cfg.warmup_steps
+        )
     loss_fn = LabelSmoothingLoss(
         len(tgt_vocab), pad_idx, smoothing=cfg.smoothing
     )
