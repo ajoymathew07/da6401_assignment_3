@@ -16,6 +16,7 @@ AUTOGRADER CONTRACT (DO NOT MODIFY SIGNATURES):
 
 import math
 import copy
+import gdown
 from typing import Optional, Tuple
 
 import torch
