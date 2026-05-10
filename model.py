@@ -457,8 +457,19 @@ class Transformer(nn.Module):
     ) -> None:
         # ── Step 1: Tokenizers (plain Python — BEFORE super().__init__) ──
         import spacy
-        self.spacy_de       = spacy.load('de_core_news_sm')
-        self.spacy_en       = spacy.load('en_core_web_sm')
+
+        try:
+            self.spacy_de = spacy.load("de_core_news_sm")
+        except OSError:
+            print("[Warning] de_core_news_sm not found. Using spacy.blank('de').")
+            self.spacy_de = spacy.blank("de")
+
+        try:
+            self.spacy_en = spacy.load("en_core_web_sm")
+        except OSError:
+            print("[Warning] en_core_web_sm not found. Using spacy.blank('en').")
+            self.spacy_en = spacy.blank("en")
+
         self.special_tokens: list[str] = ["<pad>", "<unk>", "<sos>", "<eos>"]
 
         # ── Step 2: Build vocabs from train split ────────────────────────
