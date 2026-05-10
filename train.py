@@ -347,16 +347,16 @@ def run_training_experiment() -> None:
     parser = argparse.ArgumentParser(description="DA6401 Assignment 3 - Transformer NMT")
 
     # Model hyperparameters
-    parser.add_argument("--d_model",      type=int,   default=512,   help="Model dimensionality")
-    parser.add_argument("--N",            type=int,   default=6,     help="Number of encoder/decoder layers")
+    parser.add_argument("--d_model",      type=int,   default=256,   help="Model dimensionality")
+    parser.add_argument("--N",            type=int,   default=3,     help="Number of encoder/decoder layers")
     parser.add_argument("--num_heads",    type=int,   default=8,     help="Number of attention heads")
-    parser.add_argument("--d_ff",         type=int,   default=2048,  help="FFN inner dimensionality")
+    parser.add_argument("--d_ff",         type=int,   default=512,   help="FFN inner dimensionality")
     parser.add_argument("--dropout",      type=float, default=0.1,   help="Dropout probability")
 
     # Training hyperparameters
-    parser.add_argument("--warmup_steps", type=int,   default=4000,  help="Noam scheduler warmup steps")
-    parser.add_argument("--batch_size",   type=int,   default=128,   help="Batch size (per GPU if multi-GPU)")
-    parser.add_argument("--num_epochs",   type=int,   default=15,    help="Number of training epochs")
+    parser.add_argument("--warmup_steps", type=int,   default=400,  help="Noam scheduler warmup steps")
+    parser.add_argument("--batch_size",   type=int,   default=256,   help="Batch size (per GPU if multi-GPU)")
+    parser.add_argument("--num_epochs",   type=int,   default=30,    help="Number of training epochs")
     parser.add_argument("--smoothing",    type=float, default=0.1,   help="Label smoothing factor")
 
     # Experiment control
