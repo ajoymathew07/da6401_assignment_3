@@ -458,6 +458,14 @@ def run_training_experiment() -> None:
                 best_val_loss = val_loss
                 save_checkpoint(model, optimizer, scheduler, epoch, args.checkpoint)
                 print(f"Checkpoint saved → {args.checkpoint}")
+            if (epoch + 1) % 5 == 0:
+                load_checkpoint(args.checkpoint, base_model)
+                quick_bleu = evaluate_bleu(
+                    base_model, test_loader, tgt_vocab,
+                    device=device, max_len=50
+                )
+                print(f"Epoch {epoch+1:02d} | quick_bleu={quick_bleu:.2f}")
+                wandb.log({"val/bleu": quick_bleu, "epoch": epoch})
 
         shutil.copy(args.checkpoint, "transformer_weights.pt")
         print("Copied → transformer_weights.pt")
