@@ -501,7 +501,8 @@ class Transformer(nn.Module):
                 state_dict = checkpoint.get("model_state_dict", checkpoint)
                 self.load_state_dict(state_dict)
             else:
-                gdrive_file_id = "1aD-PFsrIDWMqFMd8QOBzuCEhQ1w4HN-9"
+# https://drive.google.com/file/d/1qMDa5jbiH3YrOV8Skx4g4564EnDK_deA/view?usp=share_link
+                gdrive_file_id = "1qMDa5jbiH3YrOV8Skx4g4564EnDK_deA"
                 print("[Transformer] Downloading weights from Google Drive...")
                 gdown.download(id=gdrive_file_id, output=resolved_path, quiet=False)
                 if os.path.exists(resolved_path):
