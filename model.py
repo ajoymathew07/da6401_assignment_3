@@ -513,7 +513,8 @@ class Transformer(nn.Module):
                 self.load_state_dict(state_dict)
             else:
 # https://drive.google.com/file/d/1qMDa5jbiH3YrOV8Skx4g4564EnDK_deA/view?usp=share_link
-                gdrive_file_id = "1qMDa5jbiH3YrOV8Skx4g4564EnDK_deA"
+# https://drive.google.com/file/d/1Moa1T2VQYIcUCZxpXs4m3mfN57U9-ShF/view?usp=share_link
+                gdrive_file_id = "1Moa1T2VQYIcUCZxpXs4m3mfN57U9-ShF"  # Replace with your actual file ID
                 print("[Transformer] Downloading weights from Google Drive...")
                 gdown.download(id=gdrive_file_id, output=resolved_path, quiet=False)
                 if os.path.exists(resolved_path):
