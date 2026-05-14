@@ -24,6 +24,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 import sacrebleu
 import wandb
+import matplotlib.pyplot as plt
+import numpy as np
 
 from model import EncoderLayer, Transformer, make_src_mask, make_tgt_mask
 
@@ -364,6 +366,75 @@ def log_attention_gradient_norms(model, step):
                 "grad_norm/key": param.grad.norm().item(),
                 "step": step,
             })
+
+def log_attention_maps(model, sentence, device="cpu"):
+
+    raw_model = (
+        model.module
+        if isinstance(model, nn.DataParallel)
+        else model
+    )
+
+    raw_model.eval()
+
+    # Tokenize
+    tokens = (
+        ["<sos>"]
+        + [t.text.lower() for t in raw_model.spacy_en.tokenizer(sentence)]
+        + ["<eos>"]
+    )
+
+    indices = [
+        raw_model.src_vocab.get(
+            tok,
+            raw_model.src_vocab["<unk>"]
+        )
+        for tok in tokens
+    ]
+
+    src = torch.tensor(indices).unsqueeze(0).to(device)
+
+    src_mask = make_src_mask(
+        src,
+        raw_model.src_vocab["<pad>"]
+    ).to(device)
+
+    with torch.no_grad():
+        _ = raw_model.encode(src, src_mask)
+
+    attention = (
+        raw_model.encoder
+        .layers[-1]
+        .self_attn
+        .attention_weights
+    )
+
+    # [num_heads, seq_len, seq_len]
+    attention = attention[0].cpu().numpy()
+
+    num_heads = attention.shape[0]
+
+    for h in range(num_heads):
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+        im = ax.imshow(attention[h], aspect="auto")
+
+        ax.set_xticks(range(len(tokens)))
+        ax.set_yticks(range(len(tokens)))
+
+        ax.set_xticklabels(tokens, rotation=45)
+        ax.set_yticklabels(tokens)
+
+        ax.set_title(f"Encoder Head {h}")
+
+        fig.colorbar(im)
+
+        wandb.log({
+            f"attention/head_{h}": wandb.Image(fig)
+        })
+
+        plt.close(fig)
 # ══════════════════════════════════════════════════════════════════════
 #  EXPERIMENT ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════
@@ -537,6 +608,12 @@ def run_training_experiment() -> None:
 
     # ── 10. Evaluate BLEU on test set using best weights ──────────────
     bleu = evaluate_bleu(base_model, test_loader, tgt_vocab, device=device)
+
+    log_attention_maps(
+    base_model,
+    sentence="a man is playing guitar",
+    device=device
+    )
     print(f"Test BLEU: {bleu:.2f}")
     wandb.log({"test_bleu": bleu})
     wandb.finish()

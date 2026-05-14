@@ -197,7 +197,8 @@ class MultiHeadAttention(nn.Module):
         K = K.view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
         V = V.view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
 
-        attn_out, _ = scaled_dot_product_attention(Q, K, V, mask = mask, use_scaling = self.use_scaling)
+        attn_out, attn_weights = scaled_dot_product_attention(Q, K, V, mask = mask, use_scaling = self.use_scaling)
+        self.attention_weights = attn_weights.detach()
 
         attn_out = attn_out.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)  # [batch, seq_q, d_model]
 
