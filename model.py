@@ -248,7 +248,37 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
 
+class LearnedPositionalEncoding(nn.Module):
 
+    def __init__(
+        self,
+        d_model: int,
+        max_len: int = 5000,
+        dropout: float = 0.1,
+    ) -> None:
+        super().__init__()
+
+        self.dropout = nn.Dropout(dropout)
+
+        self.position_embedding = nn.Embedding(
+            max_len,
+            d_model
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        batch_size, seq_len, _ = x.shape
+
+        positions = torch.arange(
+            seq_len,
+            device=x.device
+        ).unsqueeze(0).expand(batch_size, seq_len)
+
+        pos_embed = self.position_embedding(positions)
+
+        x = x + pos_embed
+
+        return self.dropout(x)
 # ══════════════════════════════════════════════════════════════════════
 #  FEED-FORWARD NETWORK 
 # ══════════════════════════════════════════════════════════════════════
@@ -461,10 +491,13 @@ class Transformer(nn.Module):
         dropout:         float          = 0.1,
         checkpoint_path: Optional[str]  = None,
         load_weights:   bool           = True,
-        use_scaling: bool              = True
+        use_scaling: bool              = True,
+        learned_positional: bool       = False,
+
     ) -> None:
         # ── Step 1: Tokenizers (plain Python — BEFORE super().__init__) ──
         self.use_scaling = use_scaling
+        self.learned_positional = learned_positional
         import spacy
 
         try:
@@ -506,7 +539,16 @@ class Transformer(nn.Module):
         super().__init__()
         self.src_embed         = nn.Embedding(src_vocab_size, d_model)
         self.tgt_embed         = nn.Embedding(tgt_vocab_size, d_model)
-        self.pos_enc           = PositionalEncoding(d_model, dropout)
+        if learned_positional:
+            self.pos_enc = LearnedPositionalEncoding(
+                d_model,
+                dropout=dropout
+            )
+        else:
+            self.pos_enc = PositionalEncoding(
+                d_model,
+                dropout
+            )
         self.encoder           = Encoder(EncoderLayer(d_model, num_heads, d_ff, dropout, self.use_scaling), N)
         self.decoder           = Decoder(DecoderLayer(d_model, num_heads, d_ff, dropout, self.use_scaling), N)
         self.output_projection = nn.Linear(d_model, tgt_vocab_size)

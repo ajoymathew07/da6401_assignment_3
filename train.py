@@ -15,6 +15,7 @@ AUTOGRADER CONTRACT (DO NOT MODIFY SIGNATURES):
   └─────────────────────────────────────────────────────────────────────┘
 """
 
+from html import parser
 from pyexpat import model
 import shutil
 from typing import Optional, cast
@@ -474,6 +475,11 @@ def run_training_experiment() -> None:
 )
     parser.add_argument("--wandb_project",type=str,   default="da6401-a3", help="W&B project name")
     parser.add_argument("--wandb_run",    type=str,   default=None,   help="W&B run name (optional)")
+    parser.add_argument(
+    "--learned_positional",
+    action="store_true",
+    help="Use learned positional embeddings instead of sinusoidal encoding"
+)
 
     args = parser.parse_args()
 
@@ -488,6 +494,7 @@ def run_training_experiment() -> None:
         "batch_size":   args.batch_size,
         "num_epochs":   args.num_epochs,
         "smoothing":    args.smoothing,
+        "learned_positional": args.learned_positional,
     }
     wandb.init(project="Neural Machine Translation", config=config)
     cfg    = wandb.config
@@ -502,6 +509,7 @@ def run_training_experiment() -> None:
         dropout      = cfg.dropout,
         load_weights = not args.train,
         use_scaling = args.use_scaling,
+        learned_positional = args.learned_positional,
     ).to(device)
 
     # ── 3. Wrap with DataParallel if multiple GPUs available ──────────
