@@ -84,6 +84,26 @@ class LabelSmoothingLoss(nn.Module):
 #  TRAINING LOOP
 # ══════════════════════════════════════════════════════════════════════
 
+def compute_prediction_confidence(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    pad_idx: int,
+) -> float:
+
+    probs = torch.softmax(logits, dim=-1)
+
+    correct_token_probs = probs.gather(
+        dim=1,
+        index=targets.unsqueeze(1)
+    ).squeeze(1)
+
+    non_pad_mask = targets != pad_idx
+
+    confidence = correct_token_probs[
+        non_pad_mask
+    ].mean()
+
+    return confidence.item()
 def run_epoch(
     data_iter,
     model: nn.Module,
@@ -114,6 +134,7 @@ def run_epoch(
 
     total_loss   = 0.0
     total_tokens = 0
+    total_confidence = 0.0
     pad_idx      = 0
     global_step = epoch_num * len(data_iter)
 
@@ -136,6 +157,11 @@ def run_epoch(
             targets_flat = tgt_target.contiguous().view(-1)
 
             loss = loss_fn(logits_flat, targets_flat)
+            confidence = compute_prediction_confidence(
+                logits_flat,
+                targets_flat,
+                pad_idx
+            )
 
             if is_train and optimizer is not None:
                 optimizer.zero_grad()
@@ -155,16 +181,28 @@ def run_epoch(
                 wandb.log({
                     "train/step_loss": loss.item(),
                     "train/lr":        optimizer.param_groups[0]["lr"],
+                    "train/prediction_confidence": confidence,
                 })
 
             non_pad       = (targets_flat != pad_idx).sum().item()
+            total_confidence += confidence * non_pad
             total_loss   += loss.item() * non_pad   # type: ignore
             total_tokens += non_pad                  # type: ignore
 
 
     avg_loss = total_loss / max(total_tokens, 1)    # type: ignore
     prefix   = "train" if is_train else "val"
-    wandb.log({f"{prefix}/epoch_loss": avg_loss, "epoch": epoch_num})
+    avg_confidence = total_confidence / max(total_tokens, 1)
+
+    wandb.log({
+
+        f"{prefix}/epoch_loss": avg_loss,
+
+        f"{prefix}/prediction_confidence": avg_confidence,
+
+        "epoch": epoch_num
+
+    })
     return avg_loss
 
 
